@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Burke Mansion Macon — Availability Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+:root{--cream:#F5F0E8;--warm:#FDFAF5;--charcoal:#1C1C1A;--muted:#6B6760;--border:#E0D9CE;--green:#2D6A4F;--green-lt:#D8EDD4;--red:#A63228;--red-lt:#F5E0DE;--gold:#B8860B;--gold-lt:#FDF3D0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--cream);font-family:'DM Sans',sans-serif;color:var(--charcoal);min-height:100vh;}
+header{background:var(--charcoal);color:var(--cream);padding:2rem 2.5rem 1.5rem;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem;}
+header h1{font-family:'Playfair Display',serif;font-size:28px;font-weight:500;line-height:1.2;}
+header p{font-size:13px;color:#9E9890;margin-top:4px;}
+.status-chip{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);color:#9E9890;}
+.status-chip.ok{border-color:rgba(45,106,79,0.4);color:#7EC8A0;}
+.status-chip.loading{color:#C8C2B8;}
+nav{background:var(--charcoal);border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:0;padding:0 2.5rem;}
+.nav-btn{background:none;border:none;color:#9E9890;font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s;}
+.nav-btn.active{color:var(--cream);border-bottom-color:var(--gold);}
+.nav-btn:hover{color:var(--cream);}
+main{padding:2rem 2.5rem;max-width:1500px;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.loading-msg{text-align:center;padding:4rem;color:var(--muted);font-size:14px;}
+.snapshot-bar{background:var(--warm);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:1.5rem;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.snapshot-bar strong{color:var(--charcoal);}
+.changes-bar{background:var(--gold-lt);border:1px solid #E8D080;border-radius:8px;padding:10px 16px;margin-bottom:1.5rem;font-size:13px;color:#6B5500;display:none;}
+.changes-bar ul{margin:4px 0 0 18px;}.changes-bar li{margin:2px 0;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.5rem;}
+.stat-card{background:var(--warm);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;}
+.stat-val{font-family:'Playfair Display',serif;font-size:26px;font-weight:500;line-height:1;}
+.rev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1.5rem;}
+.rev-card{background:var(--warm);border:1px solid var(--border);border-radius:10px;padding:1.25rem;}
+.rev-card.combined{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.rev-month{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;}
+.rev-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:3px 0;}
+.rev-row span:last-child{font-weight:500;color:var(--charcoal);}
+.rev-div{border:none;border-top:1px solid var(--border);margin:8px 0;}
+.rev-total{display:flex;justify-content:space-between;font-size:14px;font-weight:500;}
+.rev-big{font-family:'Playfair Display',serif;font-size:24px;font-weight:500;}
+.legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--muted);}
+.leg-item{display:flex;align-items:center;gap:6px;}
+.leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.scroll-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--warm);}
+table{border-collapse:collapse;min-width:900px;width:100%;}
+thead th{font-size:10px;font-weight:500;text-align:center;padding:0;white-space:nowrap;position:sticky;top:0;background:var(--warm);z-index:2;}
+thead th.rc{text-align:left;padding:10px 14px;font-size:11px;color:var(--muted);min-width:180px;position:sticky;left:0;z-index:3;background:var(--warm);text-transform:uppercase;letter-spacing:0.06em;}
+thead th.dc{min-width:26px;width:26px;}
+.dn{display:block;padding:5px 2px 2px;color:var(--muted);font-size:10px;}
+.dd{display:block;padding:0 2px 4px;color:#B0A89E;font-size:9px;border-bottom:1px solid var(--border);}
+.dc.wk .dn,.dc.wk .dd{color:#C0B8AE;}
+.dc.td .dn{color:var(--gold);font-weight:600;}
+.dc.ms{border-left:2px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#F9F5EE;}
+tbody td.rn{font-size:12px;font-weight:500;padding:6px 14px;white-space:nowrap;position:sticky;left:0;background:var(--warm);z-index:1;border-right:1px solid var(--border);}
+tbody tr:hover td.rn{background:#F9F5EE;}
+.rate{font-size:10px;font-weight:400;color:var(--muted);}
+tbody td.cell{padding:2px;text-align:center;vertical-align:middle;}
+.dot{width:18px;height:18px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;}
+.da{background:var(--green-lt);color:var(--green);}
+.db{background:var(--red-lt);color:var(--red);}
+.dnew{background:var(--red);color:#fff;box-shadow:0 0 0 2px var(--gold);}
+.dpa{background:#EEEAE3;color:#B0A89E;}
+.dpb{background:#F5E8E7;color:#C09090;opacity:.7;}
+.month-section{margin-bottom:2.5rem;}
+.month-header{font-family:'Playfair Display',serif;font-size:18px;font-weight:500;margin-bottom:1rem;color:var(--charcoal);}
+.hist-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:1rem;}
+.hist-stat{background:var(--warm);border:1px solid var(--border);border-radius:8px;padding:10px 14px;}
+.hist-stat .sl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;}
+.hist-stat .sv{font-family:'Playfair Display',serif;font-size:20px;font-weight:500;}
+footer{padding:1.5rem 2.5rem;font-size:12px;color:var(--muted);border-top:1px solid var(--border);margin-top:2rem;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Burke Mansion Macon</h1>
+    <p>Occupancy &amp; Revenue Dashboard</p>
+  </div>
+  <div class="status-chip loading" id="statusChip">Loading data…</div>
+</header>
+<nav>
+  <button class="nav-btn active" onclick="showTab('current')">Current &amp; Upcoming</button>
+  <button class="nav-btn" onclick="showTab('mtd')">Month-to-Date</button>
+  <button class="nav-btn" onclick="showTab('history')">All History</button>
+</nav>
+<main>
+  <div class="loading-msg" id="loadingMsg">Fetching latest availability data…</div>
+
+  <!-- CURRENT TAB -->
+  <div class="tab-panel active" id="tab-current">
+    <div class="snapshot-bar" id="snapshotBar" style="display:none"></div>
+    <div class="changes-bar" id="changesBar"></div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="rev-grid" id="revGrid"></div>
+    <div class="legend">
+      <span class="leg-item"><span class="leg-dot" style="background:var(--green-lt);border:1px solid var(--green)"></span>Available</span>
+      <span class="leg-item"><span class="leg-dot" style="background:var(--red-lt);border:1px solid var(--red)"></span>Booked</span>
+      <span class="leg-item"><span class="leg-dot" style="background:var(--red);box-shadow:0 0 0 2px var(--gold)"></span>New since last scrape</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#EEEAE3;border:1px solid #C8C0B8"></span>Past date</span>
+    </div>
+    <div class="scroll-wrap"><table id="calTable"></table></div>
+  </div>
+
+  <!-- MTD TAB -->
+  <div class="tab-panel" id="tab-mtd">
+    <div id="mtdContent"></div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="tab-panel" id="tab-history">
+    <div id="histContent"></div>
+  </div>
+</main>
+<footer>Burke Mansion Macon &nbsp;·&nbsp; Tax: 16% &nbsp;·&nbsp; Nightly fee: $8/room &nbsp;·&nbsp; Auto-updated daily via GitHub Actions</footer>
+
+<script>
+const CSV_URL = 'https://raw.githubusercontent.com/paulegriffin/burke-mansion-tracker/main/burke_mansion_occupancy_log.csv';
+const TAX=0.16, FEE=8;
+const RATES={"The Heirloom Suite":215,"Sweet Georgia Suite":275,"The Front Porch Room":250,"Cherry Blossom Carriage House":450,"The Magnolia Manor Suite":250,"The Veranda Suite":250,"Capricorn Suite":250,"The Camellia Room":275};
+const ROOM_ORDER=["Capricorn Suite","Cherry Blossom Carriage House","Sweet Georgia Suite","The Camellia Room","The Front Porch Room","The Heirloom Suite","The Magnolia Manor Suite","The Veranda Suite"];
+const DOWS=['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function showTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=n=>Math.round(n)+'%';
+function parseDate(s){return new Date(s+'T00:00:00');}
+function isoDate(d){return d.toISOString().slice(0,10);}
+function addMonths(d,n){const r=new Date(d);r.setMonth(r.getMonth()+n);return r;}
+function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+
+function makeMonthDates(year,month){
+  const days=[];
+  for(let d=1;d<=daysInMonth(year,month);d++)
+    days.push(`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  return days;
+}
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line=>{
+    const vals=line.match(/(".*?"|[^,]+)(?=,|$)/g)||[];
+    const row={};
+    headers.forEach((h,i)=>{row[h]=(vals[i]||'').replace(/^"|"$/g,'').trim();});
+    return row;
+  }).filter(r=>r.snapshot_date&&r.room&&r.date&&r.status);
+}
+
+function buildLookup(rows){
+  const g={};
+  rows.forEach(r=>{
+    const k=r.room+'|'+r.date;
+    if(!g[k])g[k]=[];
+    g[k].push(r);
+  });
+  return g;
+}
+
+function getStatus(grouped,room,dateStr,asOf){
+  const k=room+'|'+dateStr;
+  const entries=(grouped[k]||[]).filter(r=>r.snapshot_date<=asOf);
+  if(!entries.length)return null;
+  if(dateStr<asOf){
+    const prior=entries.filter(r=>r.snapshot_date<=dateStr);
+    return prior.length?prior[prior.length-1].status:'Available';
+  }
+  return entries[entries.length-1].status;
+}
+
+function calcRev(rooms,dates,statusFn){
+  let base=0,fees=0,nights=0;
+  rooms.forEach(r=>{
+    const rate=RATES[r]||0;
+    dates.forEach(d=>{
+      if(statusFn(r,d)==='Booked'){base+=rate;fees+=FEE;nights++;}
+    });
+  });
+  const sub=base+fees,tax=sub*TAX;
+  return{nights,base,fees,tax,total:sub+tax};
+}
+
+function buildCalTable(rooms,allDates,monthSep,latest,statusFn,newBookings){
+  let th='<thead><tr><th class="rc">Room</th>';
+  allDates.forEach(d=>{
+    const num=parseInt(d.split('-')[2]),dow=DOWS[parseDate(d).getDay()];
+    const wk=[0,6].includes(parseDate(d).getDay())?' wk':'';
+    const td=d===latest?' td':'',ms=d===monthSep?' ms':'';
+    th+=`<th class="dc${wk}${td}${ms}"><span class="dn">${num}</span><span class="dd">${dow}</span></th>`;
+  });
+  th+='</tr></thead>';
+  let tb='<tbody>';
+  rooms.forEach(room=>{
+    tb+=`<tr><td class="rn">${room}<br><span class="rate">$${RATES[room]||0}/night</span></td>`;
+    allDates.forEach(d=>{
+      const s=statusFn(room,d),past=d<latest,isNew=newBookings&&newBookings.has(room+'|'+d);
+      const ms=d===monthSep?' style="border-left:2px solid var(--border)"':'';
+      let dot='';
+      if(!s)dot='<span class="dot"></span>';
+      else if(past)dot=s==='Booked'?'<span class="dot dpb">✕</span>':'<span class="dot dpa">·</span>';
+      else if(isNew)dot='<span class="dot dnew" title="New booking">✕</span>';
+      else dot=s==='Booked'?'<span class="dot db">✕</span>':'<span class="dot da">✓</span>';
+      tb+=`<td class="cell"${ms}>${dot}</td>`;
+    });
+    tb+='</tr>';
+  });
+  return th+tb+'</tbody>';
+}
+
+function renderCurrent(rows,grouped,rooms,snapshots,latest,prev){
+  const latestDate=parseDate(latest);
+  const cy=latestDate.getFullYear(),cm=latestDate.getMonth()+1;
+  const nd=addMonths(latestDate,1);
+  const ny=nd.getFullYear(),nm=nd.getMonth()+1;
+  const dates1=makeMonthDates(cy,cm),dates2=makeMonthDates(ny,nm);
+  const allDates=[...dates1,...dates2],monthSep=dates2[0];
+
+  const sf=(room,d)=>getStatus(grouped,room,d,latest);
+  const newBookings=new Set();
+  if(prev){
+    rooms.forEach(room=>allDates.forEach(d=>{
+      if(d>=latest&&sf(room,d)==='Booked'&&getStatus(grouped,room,d,prev)!=='Booked')
+        newBookings.add(room+'|'+d);
+    }));
+  }
+
+  document.getElementById('snapshotBar').style.display='flex';
+  document.getElementById('snapshotBar').innerHTML=
+    `<span><strong>Last scraped: ${latest}</strong> &nbsp;·&nbsp; ${rooms.length} rooms &nbsp;·&nbsp; ${snapshots.length} daily snapshots on file</span>
+     <span style="font-size:12px;color:var(--muted)">Auto-updates daily at 9 AM ET</span>`;
+
+  if(newBookings.size>0){
+    const items=[...newBookings].map(k=>{const[r,d]=k.split('|');return`<li>${r} — ${d}</li>`;}).join('');
+    document.getElementById('changesBar').style.display='block';
+    document.getElementById('changesBar').innerHTML=`<strong>${newBookings.size} new booking${newBookings.size>1?'s':''} since ${prev}:</strong><ul>${items}</ul>`;
+  }
+
+  let tot=0,bk=0,fa=0,fb=0;
+  rooms.forEach(r=>allDates.forEach(d=>{
+    const s=sf(r,d);if(!s)return;tot++;
+    if(s==='Booked')bk++;
+    if(d>=latest){s==='Available'?fa++:fb++;}
+  }));
+  const oc=pct(100*bk/tot),ft=fa+fb,fo=ft?pct(100*fb/ft):'0%';
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Booked room-nights</div><div class="stat-val">${bk}</div></div>
+    <div class="stat-card"><div class="stat-label">Overall occupancy</div><div class="stat-val">${oc}</div></div>
+    <div class="stat-card"><div class="stat-label">Available from today</div><div class="stat-val">${fa}</div></div>
+    <div class="stat-card"><div class="stat-label">Future occupancy</div><div class="stat-val">${fo}</div></div>`;
+
+  const m1l=latestDate.toLocaleString('default',{month:'long',year:'numeric'});
+  const m2l=nd.toLocaleString('default',{month:'long',year:'numeric'});
+  const m1=calcRev(rooms,dates1,sf),m2=calcRev(rooms,dates2,sf),both=calcRev(rooms,allDates,sf);
+
+  document.getElementById('revGrid').innerHTML=[{l:m1l,r:m1},{l:m2l,r:m2}].map(x=>`
+    <div class="rev-card"><div class="rev-month">${x.l}</div>
+    <div class="rev-row"><span>Booked nights</span><span>${x.r.nights}</span></div>
+    <div class="rev-row"><span>Room revenue</span><span>${fmt(x.r.base)}</span></div>
+    <div class="rev-row"><span>Fees ($8/night)</span><span>${fmt(x.r.fees)}</span></div>
+    <div class="rev-row"><span>Tax (16%)</span><span>${fmt(x.r.tax)}</span></div>
+    <hr class="rev-div">
+    <div class="rev-total"><span>Est. total</span><span>${fmt(x.r.total)}</span></div></div>`).join('')+`
+    <div class="rev-card combined">
+      <div><div class="rev-month" style="margin-bottom:4px">Combined: ${m1l} + ${m2l}</div>
+      <div style="font-size:13px;color:var(--muted)">${both.nights} nights · ${fmt(both.base)} rooms + ${fmt(both.fees)} fees + ${fmt(both.tax)} tax</div></div>
+      <div class="rev-big">${fmt(both.total)}</div>
+    </div>`;
+
+  document.getElementById('calTable').innerHTML=buildCalTable(rooms,allDates,monthSep,latest,sf,newBookings);
+}
+
+function renderMTD(rows,grouped,rooms,latest){
+  const d=parseDate(latest);
+  const y=d.getFullYear(),m=d.getMonth()+1;
+  const monthDates=makeMonthDates(y,m).filter(dt=>dt<=latest);
+  const monthLabel=d.toLocaleString('default',{month:'long',year:'numeric'});
+  const sf=(room,dt)=>getStatus(grouped,room,dt,latest);
+
+  let html=`<h2 style="font-family:'Playfair Display',serif;font-size:20px;font-weight:500;margin-bottom:1.5rem">${monthLabel} — Month to Date</h2>`;
+
+  // Per-room MTD breakdown
+  html+='<div class="rev-grid">';
+  rooms.forEach(room=>{
+    const rate=RATES[room]||0;
+    let bk=0,av=0;
+    monthDates.forEach(dt=>{const s=sf(room,dt);if(s==='Booked')bk++;else if(s==='Available')av++;});
+    const base=bk*rate,fees=bk*FEE,sub=base+fees,tax=sub*TAX,total=sub+tax;
+    const occ=monthDates.length?pct(100*bk/monthDates.length):'—';
+    html+=`<div class="rev-card">
+      <div class="rev-month">${room}</div>
+      <div class="rev-row"><span>Booked</span><span>${bk} nights</span></div>
+      <div class="rev-row"><span>Available</span><span>${av} nights</span></div>
+      <div class="rev-row"><span>Occupancy</span><span>${occ}</span></div>
+      <div class="rev-row"><span>Room revenue</span><span>${fmt(base)}</span></div>
+      <div class="rev-row"><span>Fees</span><span>${fmt(fees)}</span></div>
+      <div class="rev-row"><span>Tax</span><span>${fmt(tax)}</span></div>
+      <hr class="rev-div">
+      <div class="rev-total"><span>Est. total</span><span>${fmt(total)}</span></div>
+    </div>`;
+  });
+
+  // Overall MTD total
+  const totals=calcRev(rooms,monthDates,sf);
+  const totOcc=monthDates.length*rooms.length?pct(100*totals.nights/(monthDates.length*rooms.length)):'—';
+  html+=`<div class="rev-card combined">
+    <div><div class="rev-month" style="margin-bottom:4px">All Rooms — ${monthLabel} MTD</div>
+    <div style="font-size:13px;color:var(--muted)">${totals.nights} booked nights · ${totOcc} occupancy · ${fmt(totals.base)} rooms + ${fmt(totals.fees)} fees + ${fmt(totals.tax)} tax</div></div>
+    <div class="rev-big">${fmt(totals.total)}</div>
+  </div>`;
+  html+='</div>';
+
+  document.getElementById('mtdContent').innerHTML=html;
+}
+
+function renderHistory(rows,grouped,rooms){
+  // Group all dates by year-month
+  const allDates=[...new Set(rows.map(r=>r.date))].sort();
+  const latest=[...new Set(rows.map(r=>r.snapshot_date))].sort().pop();
+  const byMonth={};
+  allDates.forEach(d=>{const ym=d.slice(0,7);if(!byMonth[ym])byMonth[ym]=[];byMonth[ym].push(d);});
+
+  let html='';
+  Object.keys(byMonth).sort().reverse().forEach(ym=>{
+    const [y,m]=ym.split('-').map(Number);
+    const label=new Date(y,m-1,1).toLocaleString('default',{month:'long',year:'numeric'});
+    const dates=byMonth[ym];
+    const sf=(room,d)=>getStatus(grouped,room,d,latest);
+    const rev=calcRev(rooms,dates,sf);
+    let bk=0,tot=0;
+    rooms.forEach(r=>dates.forEach(d=>{const s=sf(r,d);if(s)tot++;if(s==='Booked')bk++;}));
+    const occ=tot?pct(100*bk/tot):'—';
+
+    html+=`<div class="month-section">
+      <div class="month-header">${label}</div>
+      <div class="hist-stats">
+        <div class="hist-stat"><div class="sl">Booked nights</div><div class="sv">${rev.nights}</div></div>
+        <div class="hist-stat"><div class="sl">Occupancy</div><div class="sv">${occ}</div></div>
+        <div class="hist-stat"><div class="sl">Room revenue</div><div class="sv">${fmt(rev.base)}</div></div>
+        <div class="hist-stat"><div class="sl">Fees</div><div class="sv">${fmt(rev.fees)}</div></div>
+        <div class="hist-stat"><div class="sl">Tax</div><div class="sv">${fmt(rev.tax)}</div></div>
+        <div class="hist-stat"><div class="sl">Est. total</div><div class="sv">${fmt(rev.total)}</div></div>
+      </div>
+      <div class="scroll-wrap">
+        <table>${buildCalTable(rooms,dates,null,latest,sf,null)}</table>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('histContent').innerHTML=html||'<p style="color:var(--muted);padding:2rem">No historical data yet.</p>';
+}
+
+// Load data
+fetch(CSV_URL+'?t='+Date.now())
+  .then(r=>{
+    if(!r.ok)throw new Error('CSV not found — scraper may not have run yet.');
+    return r.text();
+  })
+  .then(text=>{
+    const rows=parseCSV(text);
+    if(!rows.length){
+      document.getElementById('loadingMsg').textContent='No data yet — check back after the first scheduled scrape.';
+      return;
+    }
+    document.getElementById('loadingMsg').style.display='none';
+
+    const grouped=buildLookup(rows);
+    const snapshots=[...new Set(rows.map(r=>r.snapshot_date))].sort();
+    const latest=snapshots[snapshots.length-1];
+    const prev=snapshots.length>=2?snapshots[snapshots.length-2]:null;
+    const rooms=ROOM_ORDER.filter(r=>rows.some(row=>row.room===r));
+
+    renderCurrent(rows,grouped,rooms,snapshots,latest,prev);
+    renderMTD(rows,grouped,rooms,latest);
+    renderHistory(rows,grouped,rooms);
+
+    const chip=document.getElementById('statusChip');
+    chip.textContent='Live — updated '+latest;
+    chip.classList.remove('loading');chip.classList.add('ok');
+  })
+  .catch(err=>{
+    document.getElementById('loadingMsg').textContent='Could not load data: '+err.message;
+    document.getElementById('statusChip').textContent='Error';
+  });
+</script>
+</body>
+</html>
