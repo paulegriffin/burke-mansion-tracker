@@ -1,1 +1,35 @@
+name: Daily Availability Scrape
 
+on:
+  schedule:
+    - cron: '0 13 * * *'   # 9 AM Eastern (UTC-4 in summer / UTC-5 in winter — adjust as needed)
+  workflow_dispatch:         # Also allows manual trigger from GitHub website
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright pandas
+          playwright install chromium
+
+      - name: Run scraper
+        run: python burke_mansion_tracker.py
+
+      - name: Commit and push updated CSV
+        run: |
+          git config user.name "Burke Mansion Bot"
+          git config user.email "bot@burkemansion.local"
+          git add burke_mansion_occupancy_log.csv
+          git diff --cached --quiet || git commit -m "Daily scrape $(date +%Y-%m-%d)"
+          git push
